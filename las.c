@@ -214,7 +214,7 @@ char escape[] = {
 	['\"'] '\"',
 };
 
-int flag_debuglabels = 0;
+int flag_verbose = 0;
 
 unsigned offset = 0x200;
 Label *labels = 0;
@@ -591,7 +591,7 @@ Chunk *parselabel(Scan *sc)
 {
 	Label *label = sc->label;
 
-	if (flag_debuglabels)
+	if (flag_verbose)
 		fprintf(stderr, "%s = ", sc->token);
 
 	expect(sc, LABEL);
@@ -605,7 +605,7 @@ Chunk *parselabel(Scan *sc)
 		label->defined = 1;
 	}
 
-	if (flag_debuglabels)
+	if (flag_verbose)
 		fprintf(stderr, "%04x\n", label->value);
 
 	return 0;
@@ -622,7 +622,7 @@ Chunk *parsesource(Scan *sc)
 	name = dupl(sc->token);
 	f = fopen(name, "r");
 	if (!f)
-		errorf(&sc->place, "could not include file: %s\n", sc->token);
+		errorf(&sc->place, "could not open file: %s\n", sc->token);
 	expect(sc, STRING);
 
 	ck->type = SOURCE;
@@ -799,6 +799,8 @@ void emitlld(FILE *f, Chunk *ck)
 	int diff = 128 + ck->arg - ck->offset;
 	Chunk c;
 
+	if (!ck->isref || ck->isreg)
+		errorf(&ck->place, "lld instruction works only with addresses");
 	if (diff >= 0 && diff <= 255)
 		warnf(&ck->place, "load from nearby address: suggest using sld\n");
 
@@ -950,13 +952,43 @@ void emit(FILE *f, Chunk *ck)
 
 int main(int argc, char *argv[])
 {
+	int i;
+	char *iname = 0, *oname = 0;
+	FILE *input, *output;
 	Chunk *ck;
 
-	ck = parse(stdin, "stdin");
+	for (i = 1; i < argc; i++) {
+		if (argv[i][0] != '-') {
+			if (iname)
+				errorf(0, "only one input file allowed\n");
+			iname = argv[i];
+			continue;
+		}
+		switch (argv[i][1]) {
+		case 'o':
+			if (!argv[i+1])
+				errorf(0, "flag -o requires a filename argument\n");
+			oname = argv[++i];
+			break;
+		case 'v':
+			flag_verbose = 1;
+			break;
+		default:
+			errorf(0, "unknown flag: %s\n", argv[i]);
+			break;
+		}
+	}
+
+	if (!(input = fopen(iname, "r")))
+		errorf(0, "could not open file: %s\n", iname);
+	if (!(output = fopen(oname, "w+")))
+		errorf(0, "could not open file: %s\n", oname);
+
+	ck = parse(input, iname);
 	if (!checklabel(labels))
 		exit(1);
 	for (; ck; ck = ck->next)
-		emit(stdout, ck);
+		emit(output, ck);
 
 	return 0;
 }
