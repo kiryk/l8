@@ -17,10 +17,16 @@ typedef enum Type {
 	STMT,
 } Type;
 
+typedef struct Place {
+	char *name;
+	int line;
+} Place;
+
 typedef struct Chunk {
 	struct Chunk *next;
 	enum Type type;
-	int size, offset, line;
+	int size, offset;
+	Place place;
 	union {
 		struct {
 			union {
@@ -55,7 +61,8 @@ typedef struct Macro {
 
 typedef struct Scan {
 	FILE *f;
-	int type, line;
+	Place place;
+	int type;
 	char token[128];
 	union {
 		Macro *macro;
@@ -207,33 +214,35 @@ char escape[] = {
 	['\"'] '\"',
 };
 
+int flag_debuglabels = 0;
+
 unsigned offset = 0x200;
 Label *labels = 0;
 
-int errorf(int line, const char *fmt, ...)
+int errorf(Place *p, const char *fmt, ...)
 {
 	int n;
 	va_list args;
 
 	va_start(args, fmt);
-	if (line > 0)
-		fprintf(stderr, "line %d: ", line);
 	fprintf(stderr, "error: ");
+	if (p)
+		fprintf(stderr, "%s: %d: ", p->name, p->line);
 	n = vfprintf(stderr, fmt, args);
 	va_end(args);
 
 	return n;
 }
 
-int warnf(int line, const char *fmt, ...)
+int warnf(Place *p, const char *fmt, ...)
 {
 	int n;
 	va_list args;
 
 	va_start(args, fmt);
-	if (line > 0)
-		fprintf(stderr, "line %d: ", line);
 	fprintf(stderr, "warning: ");
+	if (p)
+		fprintf(stderr, "%s: %d: ", p->name, p->line);
 	n = vfprintf(stderr, fmt, args);
 	va_end(args);
 
@@ -345,7 +354,7 @@ Type scan(Scan *sc)
 	sc->token[i] = '\0';
 
 	if (sc->token[0] == '\n')
-		sc->line++;
+		sc->place.line++;
 
 	/* classify */
 	if (quote == '\0' && strchr(spec, sc->token[0])) {
@@ -388,7 +397,7 @@ int expect(Scan *sc, Type t)
 {
 	if (consume(sc, t))
 		return 1;
-	errorf(sc->line, "expected: %s, got: %s\n", tokens[t], tokens[sc->type]);
+	errorf(&sc->place, "expected: %s, got: %s\n", tokens[t], tokens[sc->type]);
 	exit(1);
 }
 
@@ -437,24 +446,24 @@ unsigned tonum(char *s)
 	return num;
 }
 
-Chunk *parse(FILE *f)
+Chunk *parse(FILE *f, char *name)
 {
 	Chunk *head = 0, *tail, *ck;
-	Scan sc = {.f = f, .line = 1};
-	int line;
+	Place place;
+	Scan sc = {.f = f, { name, 1 } };
 
 	scan(&sc);
 
 	while (sc.type != END) {
-		line = sc.line;
+		place = sc.place;
 		switch (sc.type) {
 		default:
-			errorf(sc.line, "unexpected token: %s (%s)\n",
+			errorf(&sc.place, "unexpected token: %s (%s)\n",
 				tokens[sc.type], sc.token);
 			exit(1);
 		case INST:
 			if (offset & 1) {
-				errorf(sc.line, "instruction at an odd address: %04xh\n", offset);
+				errorf(&sc.place, "instruction at an odd address: %04xh\n", offset);
 				exit(1);
 			}
 			ck = parseinst(&sc);
@@ -487,7 +496,7 @@ Chunk *parse(FILE *f)
 			break;
 		}
 		if (ck) {
-			ck->line = line;
+			ck->place = place;
 			ck->offset = offset;
 			offset += ck->size;
 			if (!head)
@@ -582,7 +591,8 @@ Chunk *parselabel(Scan *sc)
 {
 	Label *label = sc->label;
 
-	fprintf(stderr, "%s = ", sc->token);
+	if (flag_debuglabels)
+		fprintf(stderr, "%s = ", sc->token);
 
 	expect(sc, LABEL);
 
@@ -595,7 +605,8 @@ Chunk *parselabel(Scan *sc)
 		label->defined = 1;
 	}
 
-	fprintf(stderr, "%04x\n", label->value);
+	if (flag_debuglabels)
+		fprintf(stderr, "%04x\n", label->value);
 
 	return 0;
 }
@@ -604,17 +615,19 @@ Chunk *parsesource(Scan *sc)
 {
 	Chunk *ck = calloc(1, sizeof(*ck));
 	FILE *f;
+	char *name;
 
 	expect(sc, STMT);
 
-	f = fopen(sc->token, "r");
+	name = dupl(sc->token);
+	f = fopen(name, "r");
 	if (!f)
-		errorf(sc->line, "could not include file: %s\n", sc->token);
+		errorf(&sc->place, "could not include file: %s\n", sc->token);
 	expect(sc, STRING);
 
 	ck->type = SOURCE;
 	ck->size = 0;
-	ck->source = parse(f);
+	ck->source = parse(f, name);
 	fclose(f);
 
 	return ck;
@@ -722,7 +735,7 @@ void emitj(FILE *f, Chunk *ck)
 	int diff = 128 + ck->arg - ck->offset;
 
 	if (diff >= 0 && diff <= 255)
-		warnf(ck->line, "jump to nearby address: suggest using sj\n");
+		warnf(&ck->place, "jump to nearby address: suggest using sj\n");
 	emitbased(f, ck, "jmp");
 }
 
@@ -731,7 +744,7 @@ void emitjc(FILE *f, Chunk *ck)
 	int diff = 128 + ck->arg - ck->offset;
 
 	if (diff >= 0 && diff <= 255)
-		warnf(ck->line, "jump to nearby address: suggest using sjc\n");
+		warnf(&ck->place, "jump to nearby address: suggest using sjc\n");
 	emitbased(f, ck, "jmc");
 }
 
@@ -741,15 +754,15 @@ void emitrel(FILE *f, Chunk *ck, char *op)
 	Chunk c;
 
 	if (ck->isreg) {
-		errorf(ck->line, "relative addressing with constant, missing '#'?\n");
+		errorf(&ck->place, "relative addressing with constant, missing '#'?\n");
 		exit(1);
 	}
 	if (diff < 0) {
-		errorf(ck->line, "relative addressing below -128\n");
+		errorf(&ck->place, "relative addressing below -128\n");
 		exit(1);
 	}
 	if (diff > 255) {
-		errorf(ck->line, "relative addressing above +127\n");
+		errorf(&ck->place, "relative addressing above +127\n");
 		exit(1);
 	}
 
@@ -787,7 +800,7 @@ void emitlld(FILE *f, Chunk *ck)
 	Chunk c;
 
 	if (diff >= 0 && diff <= 255)
-		warnf(ck->line, "load from nearby address: suggest using sld\n");
+		warnf(&ck->place, "load from nearby address: suggest using sld\n");
 
 	emitstb(f, ck);
 
@@ -804,7 +817,7 @@ void emitldh(FILE *f, Chunk *ck)
 	Chunk c;
 
 	if (ck->base || ck->isref || ck->isreg)
-		errorf(ck->line, "ldh instruction works only with constants");
+		errorf(&ck->place, "ldh instruction works only with constants");
 
 	c.base = 0;
 	c.isref = 0;
@@ -870,7 +883,7 @@ void emitpshm(FILE *f, Chunk *ck)
 	Chunk c;
 
 	if (!ck->isref) {
-		errorf(ck->line, "pshm macro works only with references\n");
+		errorf(&ck->place, "pshm macro works only with references\n");
 		exit(1);
 	}
 
@@ -894,7 +907,7 @@ void emitpopm(FILE *f, Chunk *ck)
 	Chunk c;
 
 	if (!ck->isref) {
-		errorf(ck->line, "popm macro works only with references\n");
+		errorf(&ck->place, "popm macro works only with references\n");
 		exit(1);
 	}
 
@@ -930,7 +943,7 @@ void emit(FILE *f, Chunk *ck)
 	case SOURCE:
 		return emitsource(f, ck);
 	default:
-		errorf(ck->line, "chunk type %d cannot be emitted", ck->type);
+		errorf(&ck->place, "chunk type %d cannot be emitted", ck->type);
 		exit(1);
 	}
 }
@@ -939,7 +952,7 @@ int main(int argc, char *argv[])
 {
 	Chunk *ck;
 
-	ck = parse(stdin);
+	ck = parse(stdin, "stdin");
 	if (!checklabel(labels))
 		exit(1);
 	for (; ck; ck = ck->next)
