@@ -88,7 +88,7 @@ void emit(FILE *, Chunk *);
 void emitinst(FILE *, Chunk *);
 void emitnumber(FILE *, Chunk *);
 void emitstring(FILE *, Chunk *);
-void emitstb(FILE *, Chunk *);
+void emitldb(FILE *, Chunk *);
 void emitj(FILE *, Chunk *);
 void emitjc(FILE *, Chunk *);
 void emitsj(FILE *, Chunk *);
@@ -174,7 +174,7 @@ Code ops[] = {
 };
 
 Macro macros[] = {
-	{"stb",  4*2, emitstb},
+	{"ldb",  4*2, emitldb},
 	{"j",    5*2, emitj},
 	{"jc",   5*2, emitjc},
 	{"sj",     2, emitsj},
@@ -683,7 +683,7 @@ void emitsource(FILE *f, Chunk *ck)
 		emit(f, ck);
 }
 
-void emitstb(FILE *f, Chunk *ck)
+void emitldb(FILE *f, Chunk *ck)
 {
 	Chunk c;
 
@@ -715,7 +715,7 @@ void emitbased(FILE *f, Chunk *ck, char *op)
 {
 	Chunk c;
 
-	emitstb(f, ck);
+	emitldb(f, ck);
 
 	c.opc = find(ops, op);
 	c.base = find(lregs, "b");
@@ -804,7 +804,7 @@ void emitlld(FILE *f, Chunk *ck)
 	if (diff >= 0 && diff <= 255)
 		warnf(&ck->place, "load from nearby address: suggest using sld\n");
 
-	emitstb(f, ck);
+	emitldb(f, ck);
 
 	c.opc = find(ops, "ld");
 	c.base = find(lregs, "b");
@@ -959,15 +959,23 @@ int main(int argc, char *argv[])
 
 	for (i = 1; i < argc; i++) {
 		if (argv[i][0] != '-') {
-			if (iname)
+			if (iname) {
 				errorf(0, "only one input file allowed\n");
+				exit(1);
+			}
 			iname = argv[i];
 			continue;
 		}
+		if (argv[i][2] != '\0') {
+			errorf(0, "only single character flags allowed\n");
+			exit(1);
+		}
 		switch (argv[i][1]) {
 		case 'o':
-			if (!argv[i+1])
+			if (!argv[i+1]) {
 				errorf(0, "flag -o requires a filename argument\n");
+				exit(1);
+			}
 			oname = argv[++i];
 			break;
 		case 'v':
@@ -975,14 +983,19 @@ int main(int argc, char *argv[])
 			break;
 		default:
 			errorf(0, "unknown flag: %s\n", argv[i]);
+			exit(1);
 			break;
 		}
 	}
 
-	if (!(input = fopen(iname, "r")))
+	if (!(input = fopen(iname, "r"))) {
 		errorf(0, "could not open file: %s\n", iname);
-	if (!(output = fopen(oname, "w+")))
+		exit(1);
+	}
+	if (!(output = fopen(oname, "w+"))) {
 		errorf(0, "could not open file: %s\n", oname);
+		exit(1);
+	}
 
 	ck = parse(input, iname);
 	if (!checklabel(labels))
