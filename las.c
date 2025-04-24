@@ -690,6 +690,9 @@ void emitldb(FILE *f, Chunk *ck)
 	c.base = 0;
 	c.isref = 0;
 
+	if (ck->isref || ck->isreg)
+		errorf(&ck->place, "ldb instruction works only with constants\n");
+
 	c.opc = find(ops, "ld");
 	c.isreg = 0;
 	c.arg = ck->arg & 0xff;
@@ -753,18 +756,12 @@ void emitrel(FILE *f, Chunk *ck, char *op)
 	int diff = 128 + ck->arg - ck->offset;
 	Chunk c;
 
-	if (ck->isreg) {
+	if (ck->isreg)
 		errorf(&ck->place, "relative addressing with constant, missing '#'?\n");
-		exit(1);
-	}
-	if (diff < 0) {
+	if (diff < 0)
 		errorf(&ck->place, "relative addressing below -128\n");
-		exit(1);
-	}
-	if (diff > 255) {
+	if (diff > 255)
 		errorf(&ck->place, "relative addressing above +127\n");
-		exit(1);
-	}
 
 	c.opc = find(ops, op);
 	c.base = find(lregs, "pc");
@@ -804,7 +801,9 @@ void emitlld(FILE *f, Chunk *ck)
 	if (diff >= 0 && diff <= 255)
 		warnf(&ck->place, "load from nearby address: suggest using sld\n");
 
-	emitldb(f, ck);
+	c = *ck;
+	c.isref = 0;
+	emitldb(f, &c);
 
 	c.opc = find(ops, "ld");
 	c.base = find(lregs, "b");
