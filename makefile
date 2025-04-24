@@ -10,12 +10,15 @@ test: obj_dir/Vtb l8.img
 	obj_dir/Vtb
 
 clean:
-	rm -r l8.asm *.bin *.img obj_dir las $(TLS)
+	rm -r l8.asm *.bin *.img obj_dir las mkfs $(TLS)
 
 las: las.c
 	cc -g -Wall -ansi -o las las.c
 
-l8.img: $(TLS)
+mkfs: mkfs.c
+	cc -g -Wall -ansi -o mkfs mkfs.c
+
+l8.img: mkfs $(TLS)
 	./mkfs l8.img -d os -d tools $(TLS)
 
 l8.asm: $(SRC).asm

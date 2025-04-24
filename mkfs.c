@@ -90,11 +90,11 @@ Entry *mkfile(Disk d, File dir, char *name)
 
 	for (i = 0; i < SECTOR_SZ/sizeof(Entry); i++) {
 		if (strcmp(e[i].name, name) == 0)
-			fprintf(stderr, "error: file %s already exists\n");
+			fprintf(stderr, "error: file %s already exists\n", name);
 		if (e[i].head == 0)
 			break;
 	}
-	e[i].head == 0xff;
+	e[i].head = 0xff;
 	e[i].size[0] = 0;
 	e[i].size[1] = 0;
 	strcpy(e[i].name, name);
@@ -129,9 +129,8 @@ Entry *mkpath(Disk d, File dir, char *path)
 {
 	Entry *e;
 	char *next;
-	int sz;
 
-	if (next = strchr(path, '/'))
+	if ((next = strchr(path, '/')))
 		*next++ = '\0';
 	if (!(e = find(d, dir, path)))
 		e = mkdir(d, dir, path);
