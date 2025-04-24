@@ -145,7 +145,7 @@ module alu (opc, lop, rop, res, ic, oc);
 		`OPC_SUB: {oc, res} = {1'b0, lop} - {1'b0, rop};
 		`OPC_SUC: {oc, res} = {1'b0, lop} - {1'b0, rop} - {7'b0, ic};
 		`OPC_SHL: {oc, res} = {1'b0, lop} << rop;
-		`OPC_SHR: {oc, res} = {ic,   lop  >> rop};
+		`OPC_SHR: {oc, res} = {lop[0], lop >> rop};
 		`OPC_AND: {oc, res} = {ic,   lop  & rop};
 		`OPC_OR:  {oc, res} = {ic,   lop  | rop};
 		`OPC_XOR: {oc, res} = {ic,   lop  ^ rop};
