@@ -184,7 +184,7 @@ module core (clk, rst, hlt, iaddr, idata, bus);
 	logic [5:0] opc;
 	inst_t      inst;
 
-  /* predicates (tell what has to be done) */
+	/* predicates (tell what has to be done) */
 	logic ready, irq, igirq, rmem, wmem, wreg, hmem;
 
 	/* memory and ALU outputs */
