@@ -318,14 +318,14 @@ module core (clk, rst, hlt, iaddr, idata, bus);
 		`OPC_RTI: npc = ic[15:1] + 1;
 	endcase
 
-	/* interract with the data bus */
+	/* interact with the data bus */
 	assign hmemres   = bus.rdata;
 	assign bus.addr  = saddr;
 	assign bus.rreq  = hmem && rmem;
 	assign bus.wreq  = hmem && wmem;
 	assign bus.wdata = sres;
 
-	/* interract with the instruction bus */
+	/* interact with the instruction bus */
 	assign inst = idata;
 	assign iaddr = {ready ? npc : pc, 1'b0};
 
