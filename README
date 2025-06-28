@@ -1,4 +1,4 @@
-Run `make test` to build and run in Verilator.
+Run `gmake test` to build and run in Verilator.
 This builds the L8 Assembler (las), a custom FS image maker (mkfs), a demo OS, and two programs for it (try wordle in /tools), then writes them to a disc image and boots it.
 
 L8 is a tiny little-endian single-cycle microcontroller (MCU) design with 8-bit data, 16-bit address, and 16-bit instruction buses. It has a single 8-bit accumulator register (A) and an auxiliary 16-bit base register (B) used in addressing. Together with the internal 1-bit carry (C), 8-bit stack pointer (SP), 15-bit program counter (PC), and 16-bit interrupt cause (IC) registers, the whole internal state of the MCU is contained in a total of 64 bits.
