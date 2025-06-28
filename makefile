@@ -1,4 +1,4 @@
-NPROC = $(shell nproc)
+NPROC = 0
 SRC   = os
 TLS   = \
 	wordle \
