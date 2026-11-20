@@ -105,20 +105,20 @@ void emitpopm(FILE *, Chunk *);
 void emitret(FILE *, Chunk *);
 
 char *tokens[] = {
-	[END]    "end of file",
-	[LREG]   "base register",
-	[SREG]   "short register",
-	[INST]   "instruction name",
-	[STRING] "string",
-	[LABEL]  "label",
-	[NUMBER] "number",
-	[MACRO]  "macroinstruction name",
-	[STMT]   "statement",
-	['\n']   "new line",
-	[',']    "','",
-	[':']    "':'",
-	['#']    "'#'",
-	['+']    "'+'",
+	[END]    = "end of file",
+	[LREG]   = "base register",
+	[SREG]   = "short register",
+	[INST]   = "instruction name",
+	[STRING] = "string",
+	[LABEL]  = "label",
+	[NUMBER] = "number",
+	[MACRO]  = "macroinstruction name",
+	[STMT]   = "statement",
+	['\n']   = "new line",
+	[',']    = "','",
+	[':']    = "':'",
+	['#']    = "'#'",
+	['+']    = "'+'",
 };
 
 Code sregs[] = {
@@ -199,19 +199,18 @@ Code stmts[] = {
 };
 
 char escape[] = {
-	['0']  '\0',
-	['a']  '\a',
-	['b']  '\b',
-	['e']  '\e',
-	['f']  '\f',
-	['n']  '\n',
-	['r']  '\r',
-	['t']  '\t',
-	['v']  '\v',
-	['a']  '\a',
-	['\\'] '\\',
-	['\''] '\'',
-	['\"'] '\"',
+	['0']  = '\0',
+	['a']  = '\a',
+	['b']  = '\b',
+	['e']  = '\e',
+	['f']  = '\f',
+	['n']  = '\n',
+	['r']  = '\r',
+	['t']  = '\t',
+	['v']  = '\v',
+	['\\'] = '\\',
+	['\''] = '\'',
+	['\"'] = '\"',
 };
 
 int flag_verbose = 0;
