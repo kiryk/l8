@@ -219,7 +219,7 @@ module core (clk, rst, hlt, iaddr, idata, bus);
 	assign irq = !igirq && bus.irq;
 
 	/* halt CPU */
-	assign hlt = !|idata || opc == `OPC_HLT;
+	assign hlt = !(|idata) || opc == `OPC_HLT;
 
 	/* read memory */
 	assign rmem = (opc == `OPC_LD &&  inst.isref)               || opc == `OPC_POP;
